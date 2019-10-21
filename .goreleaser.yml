@@ -1,0 +1,35 @@
+project_name: rtc-utils
+dist: dist
+
+release:
+  github:
+    owner: TheCacophonyProject
+    name: rtc-utils
+  name_template: '{{.Tag}}'
+
+builds:
+- binary: load-rtc
+  main: ./cmd/load-rtc
+  goos:
+    - linux
+  goarch:
+    - arm
+  goarm:
+    - "7"
+  ldflags: -s -w -X main.version={{.Version}}
+
+nfpms:
+- vendor: The Cacophony Project
+  homepage: http://cacophony.org.nz/
+  maintainer: Cacophony Developers <coredev@cacophony.org.nz>
+  description: Tools for managing the real-time clock
+  license: GPL v3.0
+  name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}"
+  formats:
+    - deb
+  bindir: /usr/bin
+  files:
+    "_release/rtc.service": "/etc/systemd/system/rtc.service"
+
+checksum:
+  name_template: '{{ .ProjectName }}_{{ .Version }}_checksums.txt'

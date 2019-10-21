@@ -1,0 +1,12 @@
+[Unit]
+Description=Set the system clock from the RTC
+DefaultDependencies=no
+After=sysinit.target
+Conflicts=shutdown.target
+
+[Service]
+ExecStart=/usr/bin/load-rtc
+Type=oneshot
+
+[Install]
+WantedBy=sysinit.target
