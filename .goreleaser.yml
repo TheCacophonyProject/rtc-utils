@@ -28,9 +28,8 @@ nfpms:
   formats:
     - deb
   bindir: /usr/bin
-  #files:
-  #  "_release/event-reporter.service": "/etc/systemd/system/event-reporter.service"
-  #  "_release/org.cacophony.Events.conf": "/etc/dbus-1/system.d/org.cacophony.Events.conf"
+  files:
+    "_release/rtc.service": "/etc/systemd/system/rtc.service"
 
 checksum:
   name_template: '{{ .ProjectName }}_{{ .Version }}_checksums.txt'
