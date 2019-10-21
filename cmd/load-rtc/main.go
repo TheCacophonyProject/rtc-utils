@@ -24,6 +24,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/TheCacophonyProject/rtc-utils/rtc"
 )
 
 const maxAttempts = 10
@@ -59,16 +61,16 @@ func runMain() error {
 		time.Sleep(attemptInterval)
 	}
 
-	if isNTP, err := isNTPSynced(); err != nil {
+	if isNTP, err := rtc.IsNTPSynced(); err != nil {
 		return err
 	} else if isNTP {
 		fmt.Println("NTP synchronised - syncing system to RTC")
-		if err := syncSysToHC(); err != nil {
+		if err := rtc.SyncSysToHC(); err != nil {
 			return err
 		}
 	} else {
 		fmt.Println("not NTP synchronised - syncing RTC to system")
-		if err := syncHCToSys(); err != nil {
+		if err := rtc.SyncHCToSys(); err != nil {
 			return err
 		}
 	}
@@ -78,7 +80,7 @@ func runMain() error {
 }
 
 func canReadClock() bool {
-	out, err := hwclock("-r")
+	out, err := rtc.Hwclock("-r")
 	if err != nil {
 		fmt.Println(err)
 		return false
@@ -96,24 +98,6 @@ func canReadClock() bool {
 	return true
 }
 
-func syncSysToHC() error {
-	_, err := hwclock("--systohc")
-	return err
-}
-
-func syncHCToSys() error {
-	_, err := hwclock("--hctosys")
-	return err
-}
-
-func hwclock(arg string) ([]byte, error) {
-	out, err := exec.Command("hwclock", arg).CombinedOutput()
-	if err != nil {
-		return out, fmt.Errorf("hwclock %s: %v - %s", arg, err, string(out))
-	}
-	return out, nil
-}
-
 func reloadDriver() error {
 	if out, err := exec.Command("modprobe", "-r", driverName).CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to unload RTC driver: %v - %s", err, string(out))
@@ -124,12 +108,4 @@ func reloadDriver() error {
 	}
 
 	return nil
-}
-
-func isNTPSynced() (bool, error) {
-	out, err := exec.Command("timedatectl").CombinedOutput()
-	if err != nil {
-		return false, fmt.Errorf("failed check to NTP status: %v - %s", err, string(out))
-	}
-	return strings.Contains(string(out), "NTP synchronized: yes"), nil
 }
