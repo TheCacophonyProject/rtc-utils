@@ -17,20 +17,23 @@ const driverName = "rtc_pcf8523"
 var validDate = regexp.MustCompile(`^\d{4}-\d{2}-\d{2} `)
 
 func main() {
+	err := runMain()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+
+func runMain() error {
 	if os.Getegid() != 0 {
-		fatal(errors.New("run as root"))
+		return errors.New("run as root")
 	}
 
 	remaining := maxAttempts
-loop:
-	for {
-		for canReadClock() {
-			break loop
-		}
-
+	for !canReadClock() {
 		remaining--
 		if remaining < 1 {
-			fatal(errors.New("giving up initialising RTC"))
+			return errors.New("giving up initialising RTC")
 		}
 		fmt.Printf("Will try %d more times...\n", remaining)
 
@@ -41,25 +44,21 @@ loop:
 	}
 
 	if isNTP, err := isNTPSynced(); err != nil {
-		fatal(err)
+		return err
 	} else if isNTP {
 		fmt.Println("NTP synchronised - syncing system to RTC")
 		if err := syncSysToHC(); err != nil {
-			fatal(err)
+			return err
 		}
 	} else {
 		fmt.Println("not NTP synchronised - syncing RTC to system")
 		if err := syncHCToSys(); err != nil {
-			fatal(err)
+			return err
 		}
 	}
 
 	fmt.Println("Clocks initialised")
-}
-
-func fatal(err error) {
-	fmt.Println(err)
-	os.Exit(1)
+	return nil
 }
 
 func canReadClock() bool {
