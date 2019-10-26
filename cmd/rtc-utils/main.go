@@ -25,6 +25,7 @@ type Args struct {
 	WriteIfSync  bool `arg:"--write-if-sync" help:"write system time to RTC if NTP is synchronized"`
 	Write        bool `arg:"--write" help:"write system time to RTC"`
 	CheckBattery bool `arg:"--check-battery" help:"check if the RTC battery is low"`
+	Attempts     int  `args:"--attempts" help:"number of times to try reading/writing registers to the RTC"`
 }
 
 func (Args) Version() string {
@@ -32,7 +33,9 @@ func (Args) Version() string {
 }
 
 func procArgs() Args {
-	var args Args
+	args := Args{
+		Attempts: 1,
+	}
 	p := arg.MustParse(&args)
 	if !args.CheckBattery && !args.Read && !args.Write && !args.WriteIfSync {
 		p.Fail("no options given")
@@ -45,7 +48,7 @@ func runMain() error {
 	log.SetFlags(0)
 
 	if args.Read {
-		return rtc.Read()
+		return rtc.Read(args.Attempts)
 	}
 
 	if args.WriteIfSync {
@@ -55,7 +58,7 @@ func runMain() error {
 		}
 		if sync {
 			log.Println("NTP is synchronized. Writing time to RTC")
-			return rtc.Write()
+			return rtc.Write(args.Attempts)
 		} else {
 			log.Println("NTP is not synchronized. Not writing time to RTC")
 			return nil
@@ -63,11 +66,11 @@ func runMain() error {
 	}
 
 	if args.Write {
-		return rtc.Write()
+		return rtc.Write(args.Attempts)
 	}
 
 	if args.CheckBattery {
-		return rtc.CheckBattery()
+		return rtc.CheckBattery(args.Attempts)
 	}
 
 	return errors.New("no options given")

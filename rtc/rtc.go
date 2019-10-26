@@ -30,6 +30,7 @@ import (
 )
 
 const rtcAddress = 0x68
+const attemptDelay = 5 * time.Second
 
 type rtcRegisters [0x13]byte
 
@@ -46,8 +47,8 @@ func getI2CDev() (*i2c.Dev, error) {
 }
 
 // Read will set system time from RTC.
-func Read() error {
-	reg, err := readRegisters()
+func Read(attempts int) error {
+	reg, err := readRegisters(attempts)
 	if err != nil {
 		return err
 	}
@@ -98,8 +99,8 @@ func binToBCD(v uint8) uint8 {
 }
 
 // Write the current date and set the control registers on the RTC
-func Write() error {
-	reg, err := readRegisters()
+func Write(attempts int) error {
+	reg, err := readRegisters(attempts)
 	if err != nil {
 		return err
 	}
@@ -141,16 +142,11 @@ func Write() error {
 	reg[0x10] = 0x07 // Set timer A frequency to 1/3600 Hz (lowest option)
 	reg[0x12] = 0x07 // Set timer B frequency to 1/3600 Hz (lowest option)
 
-	dev, err := getI2CDev()
-	if err != nil {
-		return err
-	}
-
-	return dev.Tx(append([]byte{0x00}, reg[:]...), nil)
+	return writeRegisters(reg, attempts)
 }
 
-func CheckBattery() error {
-	reg, err := readRegisters()
+func CheckBattery(attempts int) error {
+	reg, err := readRegisters(attempts)
 	if err != nil {
 		return err
 	}
@@ -163,8 +159,21 @@ func CheckBattery() error {
 	return nil
 }
 
-// return all the registers from the RTC
-func readRegisters() (b [0x14]byte, err error) {
+func readRegisters(attempts int) ([0x14]byte, error) {
+	reg, err := readRegistersAttempt()
+	if err == nil && reg != [0x14]byte{} {
+		return reg, nil
+	}
+	attempts--
+	if attempts <= 0 {
+		return [0x14]byte{}, errors.New("failed to read RTC registers")
+	}
+	log.Printf("failed to read RTC registers. trying %d more times", attempts)
+	time.Sleep(attemptDelay)
+	return readRegisters(attempts)
+}
+
+func readRegistersAttempt() (b [0x14]byte, err error) {
 	dev, err := getI2CDev()
 	if err != nil {
 		return
@@ -173,22 +182,26 @@ func readRegisters() (b [0x14]byte, err error) {
 	return b, nil
 }
 
-func SyncSysToHC() error {
-	_, err := Hwclock("--systohc")
-	return err
-}
-
-func SyncHCToSys() error {
-	_, err := Hwclock("--hctosys")
-	return err
-}
-
-func Hwclock(arg string) ([]byte, error) {
-	out, err := exec.Command("hwclock", arg).CombinedOutput()
-	if err != nil {
-		return out, fmt.Errorf("hwclock %s: %v - %s", arg, err, string(out))
+func writeRegisters(reg [0x14]byte, attempts int) error {
+	err := writeRegistersAppempt(reg)
+	if err == nil {
+		return nil
 	}
-	return out, nil
+	attempts--
+	if attempts <= 0 {
+		return errors.New("failed to write RTC registers")
+	}
+	log.Printf("failed to write RTC registers. trying %d more times", attempts)
+	time.Sleep(attemptDelay)
+	return writeRegisters(reg, attempts)
+}
+
+func writeRegistersAppempt(reg [0x14]byte) error {
+	dev, err := getI2CDev()
+	if err != nil {
+		return err
+	}
+	return dev.Tx(append([]byte{0x00}, reg[:]...), nil)
 }
 
 func IsNTPSynced() (bool, error) {
