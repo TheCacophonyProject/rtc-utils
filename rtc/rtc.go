@@ -52,7 +52,10 @@ func Read() error {
 		return err
 	}
 
-	// lowBattery := reg[2]&byte(1<<2) != 0 // TODO send a warning if this is true
+	lowBattery := reg[2]&byte(1<<2) != 0
+	if lowBattery {
+		log.Println("RTC battery is low. Replace soon")
+	}
 	// batterySwitchOver := reg[2]&byte(1<<3) != 0 Might be usefull?
 
 	clockIntegrity := reg[0x03]&byte(1<<7) == 0 // If the clock integrity can be guaranteed
@@ -77,33 +80,13 @@ func Read() error {
 	year := bcdToBin(reg[0x09] & byte(0x7f))
 
 	timeString := fmt.Sprintf("%02d-%02d-%02dT%02d:%02d:%02d", year, month, day, hours, minutes, seconds)
-	log.Println(timeString)
+	log.Printf("time writing to system clock (in UTC): %s", timeString)
 	cmd := exec.Command("date", "+%y-%m-%dT%H:%M:%S", "--utc", fmt.Sprintf("--set=%s", timeString))
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("error running command. command: %s, err: %v, out: %s", cmd.Args, err, string(out))
 	}
 	return nil
-	/*
-		reg[0x00] = read[0x00] & ^byte(1<<7) // CAP_SEL to 0 for setting crystal load capacitance to 7pF
-		//read[0x01] = read[0x01]
-		//read[0x02] = read[0x02]
-		read[0x0A] = 0x80 // disable minute alarm
-		read[0x0B] = 0x80 // disable hour alarm
-		read[0x0C] = 0x80 // disable day alarm
-		read[0x0D] = 0x80 // disable week day alarm
-		read[0x0F] = 0x38 // disable CLKOUT
-
-		// write controll registers
-		if err := dev.Tx(append([]byte{0x00}, read[:3]...), nil); err != nil {
-			return err
-		}
-
-		// write alarm and clkout registers
-		if err := dev.Tx(append([]byte{0x0A}, read[0x0A:0x10]...), nil); err != nil {
-			return err
-		}
-	*/
 }
 
 func bcdToBin(v uint8) uint8 {
@@ -129,7 +112,7 @@ func Write() error {
 	month := now.Month()
 	year := now.Year()
 	timeString := fmt.Sprintf("%02d-%02d-%02dT%02d:%02d:%02d", year, month, day, hour, minute, second)
-	log.Println(timeString)
+	log.Printf("time writing to RTC (in UTC): %s", timeString)
 
 	// https://www.nxp.com/docs/en/data-sheet/PCF8523.pdf
 	reg[0x00] = reg[0x00] & ^byte(1<<7) // CAP_SEL to 0 for setting crystal load capacitance to 7pF.
@@ -166,6 +149,20 @@ func Write() error {
 	return dev.Tx(append([]byte{0x00}, reg[:]...), nil)
 }
 
+func CheckBattery() error {
+	reg, err := readRegisters()
+	if err != nil {
+		return err
+	}
+
+	lowBattery := reg[2]&byte(1<<2) != 0
+	if lowBattery {
+		return errors.New("RTC battery is low. Replace soon")
+	}
+	log.Println("RTC battery is fine")
+	return nil
+}
+
 // return all the registers from the RTC
 func readRegisters() (b [0x14]byte, err error) {
 	dev, err := getI2CDev()
@@ -173,7 +170,6 @@ func readRegisters() (b [0x14]byte, err error) {
 		return
 	}
 	err = dev.Tx([]byte{0x00}, b[:])
-	log.Printf("RTC registers: %v", b)
 	return b, nil
 }
 
