@@ -56,6 +56,7 @@ func runMain() error {
 		fmt.Printf("Will try %d more times...\n", remaining)
 
 		if err := reloadDriver(); err != nil {
+			fmt.Print("here")
 			fmt.Printf("failed to reload driver: %v\n", err)
 		}
 		time.Sleep(attemptInterval)
