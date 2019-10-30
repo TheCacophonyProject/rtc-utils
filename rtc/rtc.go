@@ -29,8 +29,11 @@ import (
 	"periph.io/x/periph/host"
 )
 
-const rtcAddress = 0x68
-const attemptDelay = 5 * time.Second
+const (
+	rtcAddress        = 0x68
+	attemptDelay      = 5 * time.Second
+	lowBatteryMessage = "RTC battery is low. Replace soon"
+)
 
 type rtcRegisters [0x13]byte
 
@@ -53,14 +56,12 @@ func Read(attempts int) error {
 		return err
 	}
 
-	lowBattery := reg[2]&byte(1<<2) != 0
-	if lowBattery {
-		log.Println("RTC battery is low. Replace soon")
+	if lowBattery(reg) {
+		log.Println(lowBatteryMessage)
 	}
 	// batterySwitchOver := reg[2]&byte(1<<3) != 0 Might be usefull?
 
-	clockIntegrity := reg[0x03]&byte(1<<7) == 0 // If the clock integrity can be guaranteed
-	if !clockIntegrity {
+	if !checkClockIntegrity(reg) {
 		return errors.New("clock integrity is not guaranteed. Update time to ensure proper time")
 	}
 
@@ -104,6 +105,10 @@ func Write(attempts int) error {
 	if err != nil {
 		return err
 	}
+	if lowBattery(reg) {
+		log.Println(lowBatteryMessage)
+	}
+
 	now := time.Now().UTC()
 	second := now.Second()
 	minute := now.Minute()
@@ -142,7 +147,18 @@ func Write(attempts int) error {
 	reg[0x10] = 0x07 // Set timer A frequency to 1/3600 Hz (lowest option)
 	reg[0x12] = 0x07 // Set timer B frequency to 1/3600 Hz (lowest option)
 
-	return writeRegisters(reg, attempts)
+	if err := writeRegisters(reg, attempts); err != nil {
+		return err
+	}
+	time.Sleep(10 * time.Millisecond)
+	reg, err = readRegisters(attempts)
+	if err != nil {
+		return err
+	}
+	if !checkClockIntegrity(reg) {
+		return errors.New("clock integrity was lost after writing time. Likely to be hardware issue")
+	}
+	return nil
 }
 
 func CheckBattery(attempts int) error {
@@ -151,9 +167,8 @@ func CheckBattery(attempts int) error {
 		return err
 	}
 
-	lowBattery := reg[2]&byte(1<<2) != 0
-	if lowBattery {
-		return errors.New("RTC battery is low. Replace soon")
+	if lowBattery(reg) {
+		return errors.New(lowBatteryMessage)
 	}
 	log.Println("RTC battery is fine")
 	return nil
@@ -171,6 +186,14 @@ func readRegisters(attempts int) ([0x14]byte, error) {
 	log.Printf("failed to read RTC registers. trying %d more times", attempts)
 	time.Sleep(attemptDelay)
 	return readRegisters(attempts)
+}
+
+func checkClockIntegrity(reg [0x14]byte) bool {
+	return reg[0x03]&byte(1<<7) == 0
+}
+
+func lowBattery(reg [0x14]byte) bool {
+	return reg[2]&byte(1<<2) != 0
 }
 
 func readRegistersAttempt() (b [0x14]byte, err error) {
