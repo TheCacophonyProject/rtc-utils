@@ -5,7 +5,7 @@ After=sysinit.target
 Conflicts=shutdown.target
 
 [Service]
-ExecStart=/usr/bin/load-rtc
+ExecStart=/usr/bin/rtc read --attempts 10
 Type=oneshot
 
 [Install]
