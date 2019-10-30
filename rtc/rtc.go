@@ -85,7 +85,7 @@ func Read(attempts int) error {
 	cmd := exec.Command("date", "+%y-%m-%dT%H:%M:%S", "--utc", fmt.Sprintf("--set=%s", timeString))
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("error running command. command: %s, err: %v, out: %s", cmd.Args, err, string(out))
+		return fmt.Errorf("error running: %s, err: %v, out: %s", cmd.Args, err, string(out))
 	}
 	return nil
 }

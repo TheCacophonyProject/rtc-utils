@@ -20,12 +20,17 @@ func main() {
 
 var version = "<not set>"
 
+type ReadCmd struct{}
+type CheckBatteryCmd struct{}
+type WriteCmd struct {
+	Force bool `args:"--force" help:"don't check if NTP is synchronized"`
+}
+
 type Args struct {
-	Read         bool `arg:"--read" help:"read RTC to system time"`
-	WriteIfSync  bool `arg:"--write-if-sync" help:"write system time to RTC if NTP is synchronized"`
-	Write        bool `arg:"--write" help:"write system time to RTC"`
-	CheckBattery bool `arg:"--check-battery" help:"check if the RTC battery is low"`
-	Attempts     int  `args:"--attempts" help:"number of times to try reading/writing registers to the RTC"`
+	Read         *ReadCmd         `arg:"subcommand:read" help:"read RTC to system time"`
+	Write        *WriteCmd        `arg:"subcommand:write" help:"write system time to RTC if NTP is synchronized"`
+	CheckBattery *CheckBatteryCmd `arg:"subcommand:check-battery" help:"check if the RTC battery is low"`
+	Attempts     int              `args:"--attempts" help:"number of times to try reading/writing registers to the RTC"`
 }
 
 func (Args) Version() string {
@@ -37,8 +42,8 @@ func procArgs() Args {
 		Attempts: 1,
 	}
 	p := arg.MustParse(&args)
-	if !args.CheckBattery && !args.Read && !args.Write && !args.WriteIfSync {
-		p.Fail("no options given")
+	if args.Read == nil && args.Write == nil && args.CheckBattery == nil {
+		p.Fail("no command given")
 	}
 	return args
 }
@@ -47,11 +52,16 @@ func runMain() error {
 	args := procArgs()
 	log.SetFlags(0)
 
-	if args.Read {
+	switch {
+	case args.Read != nil:
 		return rtc.Read(args.Attempts)
-	}
-
-	if args.WriteIfSync {
+	case args.CheckBattery != nil:
+		return rtc.CheckBattery(args.Attempts)
+	case args.Write != nil:
+		if args.Write.Force {
+			log.Println("not checking if NTP is synchronized")
+			return rtc.Write(args.Attempts)
+		}
 		sync, err := rtc.IsNTPSynced()
 		if err != nil {
 			return err
@@ -63,15 +73,7 @@ func runMain() error {
 			log.Println("NTP is not synchronized. Not writing time to RTC")
 			return nil
 		}
+	default:
+		return errors.New("no options given")
 	}
-
-	if args.Write {
-		return rtc.Write(args.Attempts)
-	}
-
-	if args.CheckBattery {
-		return rtc.CheckBattery(args.Attempts)
-	}
-
-	return errors.New("no options given")
 }
