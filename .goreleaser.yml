@@ -8,9 +8,9 @@ release:
   name_template: '{{.Tag}}'
 
 builds:
-- id: rtc-utils
-  binary: rtc-utils
-  main: ./cmd/rtc-utils
+- id: rtc
+  binary: rtc
+  main: ./cmd/rtc
   goos:
     - linux
   goarch:
