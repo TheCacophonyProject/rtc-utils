@@ -31,6 +31,7 @@ nfpms:
   bindir: /usr/bin
   files:
     "_release/rtc.service": "/etc/systemd/system/rtc.service"
+    "_release/rtc-ntp.service": "/etc/systemd/system/rtc-ntp.service"
     "_release/sync-rtc.cron": "/etc/cron.hourly/sync-rtc"
   scripts:
     postinstall: "_release/postinstall.sh"
