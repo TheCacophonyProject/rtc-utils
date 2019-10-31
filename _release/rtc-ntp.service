@@ -1,0 +1,10 @@
+[Unit]
+Description=Set the RTC on first NTP synchronisation
+After=multi-user.target network.target
+
+[Service]
+ExecStart=/usr/bin/rtc write --wait
+Type=oneshot
+
+[Install]
+WantedBy=multi-user.target
