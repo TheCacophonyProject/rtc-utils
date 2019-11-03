@@ -51,20 +51,27 @@ func getI2CDev() (*i2c.Dev, error) {
 
 // Read will set system time from RTC.
 func Read(attempts int) error {
-	reg, err := readRegisters(attempts)
+	state, err := State(attempts)
 	if err != nil {
 		return err
 	}
-
-	if lowBattery(reg) {
+	if state.LowBattery {
 		log.Println(lowBatteryMessage)
 	}
-	// batterySwitchOver := reg[2]&byte(1<<3) != 0 Might be usefull?
-
-	if !checkClockIntegrity(reg) {
+	if !state.ClockIntegrity {
 		return errors.New("clock integrity is not guaranteed. Update time to ensure proper time")
 	}
+	timeString := state.Time.Format("2006-01-02T15:04:05")
+	log.Printf("time writing to system clock (in UTC): %s", timeString)
+	cmd := exec.Command("date", "+%Y-%m-%dT%H:%M:%S", "--utc", fmt.Sprintf("--set=%s", timeString))
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("error running: %s, err: %v, out: %s", cmd.Args, err, string(out))
+	}
+	return nil
+}
 
+func readTime(reg [0x14]byte) (time.Time, error) {
 	seconds := bcdToBin(reg[0x03] & byte(0x7f))
 	minutes := bcdToBin(reg[0x04] & byte(0x7f))
 	hour24Format := reg[0x00]&byte(1<<3) == 0
@@ -81,14 +88,46 @@ func Read(attempts int) error {
 	month := bcdToBin(reg[0x08] & byte(0x7f))
 	year := bcdToBin(reg[0x09] & byte(0x7f))
 
-	timeString := fmt.Sprintf("%02d-%02d-%02dT%02d:%02d:%02d", year, month, day, hours, minutes, seconds)
-	log.Printf("time writing to system clock (in UTC): %s", timeString)
-	cmd := exec.Command("date", "+%y-%m-%dT%H:%M:%S", "--utc", fmt.Sprintf("--set=%s", timeString))
-	out, err := cmd.CombinedOutput()
+	timeString := fmt.Sprintf("20%02d-%02d-%02dT%02d:%02d:%02dZ", year, month, day, hours, minutes, seconds)
+	return time.Parse("2006-01-02T15:04:05Z07:00", timeString)
+}
+
+type RTCState struct {
+	register          [0x14]byte
+	Time              time.Time
+	LowBattery        bool
+	ClockIntegrity    bool
+	BatterySwitchOver bool
+}
+
+func (s RTCState) String() string {
+	return fmt.Sprintf(`RTC State:
+	Time (UTC):      %s
+	LowBattery:      %t
+	Clock Integtity: %t
+	Battery Switch:  %t`,
+		s.Time.Format("2006-01-02 15:04:05"),
+		s.LowBattery,
+		s.ClockIntegrity,
+		s.BatterySwitchOver)
+}
+
+func State(attempts int) (*RTCState, error) {
+	reg, err := readRegisters(attempts)
 	if err != nil {
-		return fmt.Errorf("error running: %s, err: %v, out: %s", cmd.Args, err, string(out))
+		return nil, err
 	}
-	return nil
+	t, err := readTime(reg)
+	if err != nil {
+		return nil, err
+	}
+	return &RTCState{
+		register:          reg,
+		Time:              t,
+		LowBattery:        lowBattery(reg),
+		ClockIntegrity:    checkClockIntegrity(reg),
+		BatterySwitchOver: reg[2]&byte(1<<3) != 0,
+	}, nil
 }
 
 func bcdToBin(v uint8) uint8 {
@@ -162,12 +201,12 @@ func Write(attempts int) error {
 }
 
 func CheckBattery(attempts int) error {
-	reg, err := readRegisters(attempts)
+	state, err := State(attempts)
 	if err != nil {
 		return err
 	}
 
-	if lowBattery(reg) {
+	if state.LowBattery {
 		return errors.New(lowBatteryMessage)
 	}
 	log.Println("RTC battery is fine")

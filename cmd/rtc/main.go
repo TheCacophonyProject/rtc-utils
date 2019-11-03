@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/alexflint/go-arg"
 	"github.com/rjeczalik/notify"
@@ -18,6 +19,7 @@ var version = "<not set>"
 
 type ReadCmd struct{}
 type CheckBatteryCmd struct{}
+type PrintCmd struct{}
 type WriteCmd struct {
 	Force bool `args:"--force" help:"don't check if NTP is synchronized"`
 	Wait  bool `args:"--wait" help:"block until is NTP synchronized before writing"`
@@ -27,6 +29,7 @@ type Args struct {
 	Read         *ReadCmd         `arg:"subcommand:read" help:"read RTC to system time"`
 	Write        *WriteCmd        `arg:"subcommand:write" help:"write system time to RTC if NTP is synchronized"`
 	CheckBattery *CheckBatteryCmd `arg:"subcommand:check-battery" help:"check if the RTC battery is low"`
+	Print        *PrintCmd        `arg:"subcommand:print" help:"print out the state of the RTC"`
 	Attempts     int              `args:"--attempts" help:"number of times to try reading/writing registers to the RTC"`
 }
 
@@ -68,6 +71,13 @@ func runMain() error {
 			log.Println("NTP is not synchronized. Not writing time to RTC")
 			return nil
 		}
+	case args.Print != nil:
+		state, err := rtc.State(args.Attempts)
+		if err == nil {
+			log.Printf("System Time: %s", time.Now().Format("2006-01-02 15:04:05Z07:00"))
+			log.Print(state)
+		}
+		return err
 	default:
 		return errors.New("no options given")
 	}
@@ -78,7 +88,7 @@ func procArgs() Args {
 		Attempts: 1,
 	}
 	p := arg.MustParse(&args)
-	if args.Read == nil && args.Write == nil && args.CheckBattery == nil {
+	if args.Read == nil && args.Write == nil && args.CheckBattery == nil && args.Print == nil {
 		p.Fail("no command given")
 	}
 	return args
