@@ -104,7 +104,7 @@ func (s RTCState) String() string {
 	return fmt.Sprintf(`RTC State:
 	Time (UTC):      %s
 	LowBattery:      %t
-	Clock Integtity: %t
+	Clock Integrity: %t
 	Battery Switch:  %t`,
 		s.Time.Format("2006-01-02 15:04:05"),
 		s.LowBattery,
