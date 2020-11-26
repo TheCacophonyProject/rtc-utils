@@ -35,7 +35,7 @@ nfpms:
   maintainer: Cacophony Developers <coredev@cacophony.org.nz>
   description: Tools for managing the real-time clock
   license: GPL v3.0
-  name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}"
+  file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}"
   formats:
     - deb
   bindir: /usr/bin
