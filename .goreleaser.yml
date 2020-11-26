@@ -8,19 +8,9 @@ release:
   name_template: '{{.Tag}}'
 
 builds:
-- id: load-rtc
-  binary: load-rtc
-  main: ./cmd/load-rtc
-  goos:
-    - linux
-  goarch:
-    - arm
-  goarm:
-    - "7"
-  ldflags: -s -w -X main.version={{.Version}}
-- id: sync-rtc
-  binary: sync-rtc
-  main: ./cmd/sync-rtc
+- id: rtc
+  binary: rtc
+  main: ./cmd/rtc
   goos:
     - linux
   goarch:
@@ -41,6 +31,7 @@ nfpms:
   bindir: /usr/bin
   files:
     "_release/rtc.service": "/etc/systemd/system/rtc.service"
+    "_release/rtc-ntp.service": "/etc/systemd/system/rtc-ntp.service"
     "_release/sync-rtc.cron": "/etc/cron.hourly/sync-rtc"
   scripts:
     postinstall: "_release/postinstall.sh"
