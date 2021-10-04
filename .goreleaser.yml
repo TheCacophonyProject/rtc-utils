@@ -29,10 +29,13 @@ nfpms:
   formats:
     - deb
   bindir: /usr/bin
-  files:
-    "_release/rtc.service": "/etc/systemd/system/rtc.service"
-    "_release/rtc-ntp.service": "/etc/systemd/system/rtc-ntp.service"
-    "_release/sync-rtc.cron": "/etc/cron.hourly/sync-rtc"
+  contents:
+    - src: _release/rtc.service
+      dst: /etc/systemd/system/rtc.service
+    - src: _release/rtc-ntp.service
+      dst: /etc/systemd/system/rtc-ntp.service
+    - src: _release/sync-rtc.cron
+      dst: /etc/cron.hourly/sync-rtc
   scripts:
     postinstall: "_release/postinstall.sh"
 
