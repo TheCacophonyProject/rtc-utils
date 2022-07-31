@@ -271,5 +271,15 @@ func IsNTPSynced() (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed check to NTP status: %v - %s", err, string(out))
 	}
-	return strings.Contains(string(out), "NTP synchronized: yes"), nil
+	syncStrs := [2]string{
+		"NTP synchronized: yes",
+		"System clock synchronized: yes",
+	}
+	strOut := string(out)
+	for _, syncStr := range syncStrs {
+		if strings.Contains(strOut, syncStr) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
